@@ -67,7 +67,11 @@ tests = testGroup "error-resolver Tests"
             [MissingType "tests :: TestTree"]
         checkCauses "test/Main.hs:(35,1)-(69,5): Warning:\n    Top-level binding with no type signature: Main.tests :: TestTree\n"
             [MissingType "tests :: TestTree"]
-
+    , testCase "Useless import" $ do
+        checkCauses "Warning: Module `List' is imported, but nothing from it is used\n              (except perhaps instances visible in `List')"
+            [UselessImport "List"]
+        checkCauses "src/Language/Haskell/ErrorAnalyze.hs:23:1-18: Warning:\n    The import of ‘Debug.Trace’ is redundant\n      except perhaps to import instances from ‘Debug.Trace’\n    To import instances alone, use: import Debug.Trace()"
+            [UselessImport "Debug.Trace"]
     ]
 
 

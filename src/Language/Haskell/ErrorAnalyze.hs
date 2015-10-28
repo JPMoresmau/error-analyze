@@ -48,7 +48,8 @@ errorCauses msg = let
             [ unknownPackageAnalyzer
             , unreferencedPackageAnalyzer
             , overloadedStringAnalyzer
-            , missingTypeAnalyzer]
+            , missingTypeAnalyzer
+            , uselessImportAnalyzer]
 
 -- | Shortcut for analyzer: takes the message in original case and lower case, return the causes
 type Analyzer = (T.Text,T.Text) -> [ErrorCause]
@@ -95,11 +96,12 @@ missingTypeAnalyzer :: Analyzer
 missingTypeAnalyzer (msg,_)
     | (bef,aft) <- T.breakOnEnd "Top-level binding with no type signature:" msg
     , not $ T.null bef
-    , typ <- T.strip aft
-    , (nam,rtyp) <- T.breakOn "::" typ
-    , (_,sname) <- T.breakOnEnd "." nam
-    , cleanTypes <- T.intercalate " " $ map cleanType $ T.splitOn " " rtyp
-       = [MissingType (T.concat [sname,cleanTypes])]
+       = beautifyTypes aft
+    | (bef,aft) <- T.breakOnEnd "definition but no type signature" msg
+    , not $ T.null bef
+    , (bef1, aft1) <- T.breakOnEnd "inferred type:" aft
+    , not $ T.null bef1
+       = beautifyTypes aft1
     | otherwise = []
     where cleanType typ =
             let typs = T.splitOn "::" typ
@@ -108,6 +110,27 @@ missingTypeAnalyzer (msg,_)
           removePackage t =
             let (b,a) = T.breakOnEnd ":" t
             in T.append (T.takeWhile (\c->c `elem` [' ','(']) b) a
+          beautifyTypes aft =
+            let typ = T.strip aft
+                (nam,rtyp) = T.breakOn "::" typ
+                (_,sname) = T.breakOnEnd "." nam
+                cleanTypes = T.intercalate " " $ map cleanType $ T.splitOn " " rtyp
+            in [MissingType (T.concat [sname,cleanTypes])]
+
+-- | Useless import
+uselessImportAnalyzer :: Analyzer
+uselessImportAnalyzer (msg,low)
+    | T.isInfixOf "imported, but nothing from it is used" low
+    , (bef,aft) <- T.breakOnEnd "Module" msg
+    , not $ T.null bef
+    , (modl,_) <- T.breakOn " " $ T.stripStart aft
+        = [UselessImport (unquote modl)]
+    | (bef,aft) <- T.breakOn "is redundant" msg
+    , not $ T.null aft
+    , (bef1,modl) <- T.breakOnEnd "import of" bef
+    , not $ T.null bef1
+       = [UselessImport (unquote $ T.strip modl)]
+    | otherwise = []
 
 -- | Remove all quotes from given text (inside the text as well)
 unquote :: T.Text -> T.Text
