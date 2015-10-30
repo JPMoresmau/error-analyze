@@ -22,7 +22,7 @@ import Language.Haskell.ErrorAnalyze
 import Test.Tasty
 import Test.Tasty.HUnit
 
-import Data.List
+import Data.List (sort)
 import qualified Data.Text as T
 
 
@@ -72,7 +72,11 @@ tests = testGroup "error-resolver Tests"
             [UselessImport "List"]
         checkCauses "src/Language/Haskell/ErrorAnalyze.hs:23:1-18: Warning:\n    The import of ‘Debug.Trace’ is redundant\n      except perhaps to import instances from ‘Debug.Trace’\n    To import instances alone, use: import Debug.Trace()"
             [UselessImport "Debug.Trace"]
+    , testCase "Useless import element" $ do
+        checkCauses "test/Main.hs:25:1-31: Warning:\n    The import of ‘sortBy’ from module ‘Data.List’ is redundant"
+            [UselessImportElement "Data.List" "sortBy"]
     ]
+
 
 
 -- | check that given messages gives given causes, in any order

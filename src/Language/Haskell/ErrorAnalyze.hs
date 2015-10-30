@@ -14,7 +14,8 @@
 -----------------------------------------------------------------------------
 
 module Language.Haskell.ErrorAnalyze
- ( ErrorCause(..)
+ ( ErrorPackage, ErrorVersion, ErrorModule
+ , ErrorCause(..)
  , errorCauses
 ) where
 
@@ -22,17 +23,25 @@ import qualified Data.Text as T
 
 import Debug.Trace
 
--- | The possible error causese
+-- | Simple synonym to indicate package names
+type ErrorPackage = T.Text
+-- | Simple synonym to indicate package versions
+type ErrorVersion = T.Text
+-- | Simple synonym to indicate module names
+type ErrorModule = T.Text
+
+-- | The possible error causes
 data ErrorCause
   -- | Package referenced in cabal file is unknown, needs to be installed, with the given version (may be -any)
-  = UnknownPackage T.Text T.Text
+  = UnknownPackage ErrorPackage ErrorVersion
   -- | A module from the package is referenced but the package is not in the build depends section of the cabal file
-  | UnreferencedPackage T.Text
+  | UnreferencedPackage ErrorPackage
   -- | The type signature is missing
   | MissingType T.Text
   | WrongIdentifier T.Text T.Text
-  | UselessImport T.Text
-  | UselessImportElement T.Text T.Text
+  -- | a full import statement is not needed (or only for instances)
+  | UselessImport ErrorModule
+  | UselessImportElement ErrorModule T.Text
   | MissingOption T.Text
   -- | An extension is missing (to add in current source file or in Cabal file)
   | MissingExtension T.Text
@@ -129,7 +138,10 @@ uselessImportAnalyzer (msg,low)
     , not $ T.null aft
     , (bef1,modl) <- T.breakOnEnd "import of" bef
     , not $ T.null bef1
-       = [UselessImport (unquote $ T.strip modl)]
+    , (befM,aftM) <- T.breakOn "from module" modl
+       = if T.null aftM
+            then [UselessImport (unquote $ T.strip modl)]
+            else [UselessImportElement (unquote $ T.strip $ T.drop 11 aftM) (unquote $ T.strip befM)]
     | otherwise = []
 
 -- | Remove all quotes from given text (inside the text as well)
