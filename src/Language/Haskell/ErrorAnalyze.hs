@@ -49,6 +49,7 @@ data ErrorCause
   -- | a full import statement is not needed (or only for instances)
   | UselessImport ErrorModule
   | UselessImportElement ErrorModule T.Text
+  -- | A GHC option is missing (to add in current source file or in Cabal file)
   | MissingOption T.Text
   -- | An extension is missing (to add in current source file or in Cabal file)
   | MissingExtension T.Text
@@ -65,7 +66,8 @@ errorCauses msg = let
             , moduleErrorAnalyzer
             , overloadedStringAnalyzer
             , missingTypeAnalyzer
-            , uselessImportAnalyzer]
+            , uselessImportAnalyzer
+            , discardedDoAnalyzer]
 
 -- | Shortcut for analyzer: takes the message in original case and lower case, return the causes
 type Analyzer = (T.Text,T.Text) -> [ErrorCause]
@@ -184,6 +186,13 @@ uselessImportAnalyzer (msg,low)
             then [UselessImport (unquote $ T.strip modl)]
             else [UselessImportElement (unquote $ T.strip $ T.drop 11 aftM) (unquote $ T.strip befM)]
     | otherwise = []
+
+-- | Discarded do result
+discardedDoAnalyzer :: Analyzer
+discardedDoAnalyzer (_,low)
+    | T.isInfixOf "a do-notation statement discarded a result" low
+        = [MissingOption "-fno-warn-unused-do-bind"]
+    | otherwise  = []
 
 -- | Remove all quotes from given text (inside the text as well)
 unquote :: T.Text -> T.Text
