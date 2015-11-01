@@ -75,12 +75,29 @@ tests = testGroup "error-resolver Tests"
     , testCase "Useless import element" $ do
         checkCauses "test/Main.hs:25:1-31: Warning:\n    The import of ‘sortBy’ from module ‘Data.List’ is redundant"
             [UselessImportElement "Data.List" "sortBy"]
-    , testCase "Mispellt Module" $ do
+    , testCase "Mispelled Module" $ do
         checkCauses "src/Language/Haskell/ErrorAnalyze.hs:25:8-18:\n    Could not find module ‘Data.Maybe1’\n    Perhaps you meant\n      Data.Maybe (from base-4.8.0.0)\n      Data.Label (needs flag -package-key fclabels-2.0.2.3@fclab_G5tEoXqujdV8Q79iHWslf8)\n    Use -v to see a list of the files searched for."
-            [MispelltModule "Data.Maybe1" [ModuleSuggestion "base" "4.8.0.0" Referenced "Data.Maybe",ModuleSuggestion "fclabels" "2.0.2.3" Unreferenced "Data.Label"]]
+            [MispelledModule "Data.Maybe1" [ModuleSuggestion "base" "4.8.0.0" Referenced "Data.Maybe",ModuleSuggestion "fclabels" "2.0.2.3" Unreferenced "Data.Label"]]
     , testCase "Discarded Do" $ do
         checkCauses "test/Main.hs:82:9-47: Warning:\n    A do-notation statement discarded a result of type ‘[Int]’\n    Suppress this warning by saying\n      ‘_ <- mapM ((.) return length) [\"toto\" :: String]’\n    or by using the flag -fno-warn-unused-do-bind"
             [MissingOption "-fno-warn-unused-do-bind"]
+    , testCase "Mispelled Identifier" $ do
+        checkCauses "Not in scope: foldl'\nPerhaps you meant one of these:\n  DM.foldl' (imported from Data.Map),\n  `foldl' (imported from Prelude),\n  `DM.foldl' (imported from Data.Map)\n"
+            [MispelledIdentifier "foldl'" [IdentifierSuggestion "Data.Map" "DM.foldl'",IdentifierSuggestion "Prelude" "foldl",IdentifierSuggestion "Data.Map" "DM.foldl"]]
+        checkCauses "Not in scope: foldl'"
+            [MispelledIdentifier "foldl'" []]
+        checkCauses "Not in scope: `foldM'\nPerhaps you meant one of these:\n  `foldr' (imported from Prelude),\n  `DM.foldr' (imported from Data.Map),\n  foldl' (imported from Prelude)\n"
+            [MispelledIdentifier "foldM" [IdentifierSuggestion "Prelude" "foldr",IdentifierSuggestion "Data.Map" "DM.foldr",IdentifierSuggestion "Prelude" "foldl'"]]
+        checkCauses "Not in scope: type constructor or class ‘ByteString’\nPerhaps you meant ‘BS.ByteString’ (imported from Data.ByteString.Lazy)\n"
+            [MispelledIdentifier "ByteString" [IdentifierSuggestion "Data.ByteString.Lazy" "BS.ByteString"]]
+        checkCauses "Not in scope: `assertEqual'"
+            [MispelledIdentifier "assertEqual" []]
+        checkCauses "Not in scope: type constructor or class `Array'"
+            [MispelledIdentifier "Array" []]
+        checkCauses " Not in scope: ‘<$>’"
+            [MispelledIdentifier "<$>" []]
+        checkCauses "src/Language/Haskell/ErrorAnalyze.hs:173:20-23:  Not in scope: data constructor ‘Data’"
+            [MispelledIdentifier "Data" []]
     ]
 
 

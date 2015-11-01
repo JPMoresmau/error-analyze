@@ -57,10 +57,10 @@ data ErrorCause
   | UnreferencedPackage ErrorPackage
   -- | The type signature is missing
   | MissingType T.Text
-  -- | A module has been mispellt, give suggestions
-  | MispelltModule T.Text [ModuleSuggestion]
+  -- | A module has been mispelled, give suggestions
+  | MispelledModule T.Text [ModuleSuggestion]
   -- | Identifier mispellt
-  | WrongIdentifier ErrorIdentifier [IdentifierSuggestion]
+  | MispelledIdentifier ErrorIdentifier [IdentifierSuggestion]
   -- | a full import statement is not needed (or only for instances)
   | UselessImport ErrorModule
   | UselessImportElement ErrorModule T.Text
@@ -82,7 +82,8 @@ errorCauses msg = let
             , overloadedStringAnalyzer
             , missingTypeAnalyzer
             , uselessImportAnalyzer
-            , discardedDoAnalyzer]
+            , discardedDoAnalyzer
+            , mispelledIdentifierAnalyzer]
 
 -- | Shortcut for analyzer: takes the message in original case and lower case, return the causes
 type Analyzer = (T.Text,T.Text) -> [ErrorCause]
@@ -118,7 +119,7 @@ moduleErrorAnalyzer (msg,_)
     , (ln1,aftln) <- T.breakOn "\n" $ T.drop (T.length couldNot) aft
     , not $ T.null ln1
     , modl <- unquote $ T.strip ln1
-       = [MispelltModule modl (suggs $ T.strip aftln)]
+       = [MispelledModule modl (suggs $ T.strip aftln)]
     | otherwise = []
     where
         couldNot ="Could not find module"
@@ -209,6 +210,41 @@ discardedDoAnalyzer (_,low)
         = [MissingOption "-fno-warn-unused-do-bind"]
     | otherwise  = []
 
+-- | A mispelled identifier, with maybe some suggestions
+mispelledIdentifierAnalyzer :: Analyzer
+mispelledIdentifierAnalyzer (msg,_)
+    | (bef,aft) <- T.breakOnEnd "Not in scope:" msg
+    , not $ T.null bef
+    , (_,aftType) <- T.breakOnEnd "type constructor or class" aft
+    , (_,aftData) <- T.breakOnEnd "data constructor" aftType
+    , (ident:lns) <- T.lines aftData
+        = [MispelledIdentifier (unquoteIfNeeded ident) (suggs lns)]
+    | otherwise = []
+    where
+        -- identifier that don't contain quotes are quoted
+        unquoteIfNeeded ident
+            | T.null ident = T.empty
+            | otherwise =
+                let st=T.strip ident
+                in if isQuote $ T.head st
+                    then unquote st
+                    else st
+        suggs ("Perhaps you meant one of these:":lns) = suggs' lns
+        suggs [t]
+            | (bef,aft) <- T.breakOnEnd "Perhaps you meant" t
+            , not $ T.null bef
+                = suggs' [aft]
+        suggs _ = []
+        suggs' = catMaybes . map sugg1
+        sugg1 ln
+            | (ident,modlImp) <- T.breakOn " " $ T.stripStart ln
+            , not $ T.null modlImp
+            , Just imp <- brackets $ T.strip modlImp
+            , (bef1,modl) <- T.breakOnEnd "imported from" imp
+            , not $ T.null bef1
+              = Just $ IdentifierSuggestion (T.strip modl) (unquoteIfNeeded ident)
+            | otherwise = Nothing
+
 -- | Remove all quotes from given text (inside the text as well)
 unquote :: T.Text -> T.Text
 unquote = T.concatMap addNonQuote
@@ -224,9 +260,9 @@ isQuote c= c `elem` ['\'', '`','‘','’' ]
 -- | Read next text into brackets if any
 brackets :: T.Text -> Maybe T.Text
 brackets t
-    | (bef,aft) <- T.breakOn "(" t
-    , not $ T.null bef
-    , (bef1,_) <- T.breakOn ")" aft
-    , not $ T.null bef1
+    | (_,aft) <- T.breakOn "(" t
+    , not $ T.null aft
+    , (bef1,aft1) <- T.breakOn ")" $ T.tail aft
+    , not $ T.null aft1
       = Just $ T.strip bef1
     |otherwise = Nothing
