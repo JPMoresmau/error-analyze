@@ -75,6 +75,9 @@ tests = testGroup "error-resolver Tests"
     , testCase "Useless import element" $ do
         checkCauses "test/Main.hs:25:1-31: Warning:\n    The import of ‘sortBy’ from module ‘Data.List’ is redundant"
             [UselessImportElement "Data.List" "sortBy"]
+    , testCase "Mispellt Module" $ do
+        checkCauses "src/Language/Haskell/ErrorAnalyze.hs:25:8-18:\n    Could not find module ‘Data.Maybe1’\n    Perhaps you meant\n      Data.Maybe (from base-4.8.0.0)\n      Data.Label (needs flag -package-key fclabels-2.0.2.3@fclab_G5tEoXqujdV8Q79iHWslf8)\n    Use -v to see a list of the files searched for."
+            [MispelltModule "Data.Maybe1" [ModuleSuggestion "base" "4.8.0.0" "Data.Maybe",ModuleSuggestion "fclabels" "2.0.2.3" "Data.Label"]]
     ]
 
 

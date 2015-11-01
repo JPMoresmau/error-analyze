@@ -16,9 +16,11 @@
 module Language.Haskell.ErrorAnalyze
  ( ErrorPackage, ErrorVersion, ErrorModule
  , ErrorCause(..)
+ , ModuleSuggestion(..)
  , errorCauses
 ) where
 
+import Data.Maybe
 import qualified Data.Text as T
 
 import Debug.Trace
@@ -30,6 +32,9 @@ type ErrorVersion = T.Text
 -- | Simple synonym to indicate module names
 type ErrorModule = T.Text
 
+data ModuleSuggestion = ModuleSuggestion ErrorPackage ErrorVersion ErrorModule
+    deriving (Show,Read,Eq,Ord)
+
 -- | The possible error causes
 data ErrorCause
   -- | Package referenced in cabal file is unknown, needs to be installed, with the given version (may be -any)
@@ -38,6 +43,8 @@ data ErrorCause
   | UnreferencedPackage ErrorPackage
   -- | The type signature is missing
   | MissingType T.Text
+  -- | A module has been mispellt, give suggestions
+  | MispelltModule T.Text [ModuleSuggestion]
   | WrongIdentifier T.Text T.Text
   -- | a full import statement is not needed (or only for instances)
   | UselessImport ErrorModule
@@ -55,7 +62,7 @@ errorCauses msg = let
     in concatMap ($ (msg,low)) analyzers
     where analyzers =
             [ unknownPackageAnalyzer
-            , unreferencedPackageAnalyzer
+            , moduleErrorAnalyzer
             , overloadedStringAnalyzer
             , missingTypeAnalyzer
             , uselessImportAnalyzer]
@@ -81,15 +88,49 @@ unknownPackageAnalyzer (msg,_)
         toUP (n:v:_) = UnknownPackage n v
         toUP [] = error "should not happen: empty list in toUP"
 
--- | An unreferenced package
-unreferencedPackageAnalyzer :: Analyzer
-unreferencedPackageAnalyzer (msg,low)
-    | T.isInfixOf "could not find module" low
+-- | An unreferenced package or a mispellt module
+moduleErrorAnalyzer :: Analyzer
+moduleErrorAnalyzer (msg,_)
+    | T.isInfixOf couldNot msg
     , (bef,aft) <- T.breakOnEnd "you need to add" msg
     , not $ T.null bef
     , (bsp,_) <- T.breakOn " " $ T.stripStart aft
        = [UnreferencedPackage $ unquote bsp]
+    | (_,aft) <- T.breakOn couldNot msg
+    , not $ T.null aft
+    , (ln1,aftln) <- T.breakOn "\n" $ T.drop (T.length couldNot) aft
+    , not $ T.null ln1
+    , modl <- unquote $ T.strip ln1
+       = [MispelltModule modl (suggs $ T.strip aftln)]
     | otherwise = []
+    where
+        couldNot ="Could not find module"
+        suggs aftln
+            | T.isPrefixOf "Perhaps you meant" aftln
+            , lns <- filter (not . T.isInfixOf "Use -v") $ map (unquote . T.strip) $ tail $ T.lines aftln
+                = catMaybes $ map sugg lns
+            | otherwise = []
+        sugg ln
+            | (bef,aft) <- T.breakOn " " ln
+            , not $ T.null bef
+            , Just brkts <- brackets aft
+            , Just (pkg,vers) <- suggPkg brkts
+                = Just $ ModuleSuggestion pkg vers(T.strip bef)
+            | otherwise = Nothing
+        suggPkg brk
+            | (bef,aft) <- T.breakOnEnd "from " brk
+            , not $ T.null bef
+             = pkgCut aft
+            | (bef,aft) <- T.breakOnEnd "needs flag -package-key " brk
+            , not $ T.null bef
+             = pkgCut aft
+            | otherwise = Nothing
+        pkgCut pv
+            | (bef,aft) <- T.breakOnEnd "-" pv
+            , not $ T.null bef
+            , (befAt,_) <- T.breakOn "@" aft
+                = Just (T.init bef,befAt)
+            | otherwise = Nothing
 
 -- | Need OverloadedStrings
 overloadedStringAnalyzer :: Analyzer
@@ -155,3 +196,13 @@ unquote = T.concatMap addNonQuote
 -- | Is a character a quote?
 isQuote :: Char -> Bool
 isQuote c= c `elem` ['\'', '`','‘','’' ]
+
+-- | Read next text into brackets if any
+brackets :: T.Text -> Maybe T.Text
+brackets t
+    | (bef,aft) <- T.breakOn "(" t
+    , not $ T.null bef
+    , (bef1,_) <- T.breakOn ")" aft
+    , not $ T.null bef1
+      = Just $ T.strip bef1
+    |otherwise = Nothing
