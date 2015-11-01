@@ -77,7 +77,7 @@ tests = testGroup "error-resolver Tests"
             [UselessImportElement "Data.List" "sortBy"]
     , testCase "Mispellt Module" $ do
         checkCauses "src/Language/Haskell/ErrorAnalyze.hs:25:8-18:\n    Could not find module ‘Data.Maybe1’\n    Perhaps you meant\n      Data.Maybe (from base-4.8.0.0)\n      Data.Label (needs flag -package-key fclabels-2.0.2.3@fclab_G5tEoXqujdV8Q79iHWslf8)\n    Use -v to see a list of the files searched for."
-            [MispelltModule "Data.Maybe1" [ModuleSuggestion "base" "4.8.0.0" "Data.Maybe",ModuleSuggestion "fclabels" "2.0.2.3" "Data.Label"]]
+            [MispelltModule "Data.Maybe1" [ModuleSuggestion "base" "4.8.0.0" Referenced "Data.Maybe",ModuleSuggestion "fclabels" "2.0.2.3" Unreferenced "Data.Label"]]
     , testCase "Discarded Do" $ do
         checkCauses "test/Main.hs:82:9-47: Warning:\n    A do-notation statement discarded a result of type ‘[Int]’\n    Suppress this warning by saying\n      ‘_ <- mapM ((.) return length) [\"toto\" :: String]’\n    or by using the flag -fno-warn-unused-do-bind"
             [MissingOption "-fno-warn-unused-do-bind"]

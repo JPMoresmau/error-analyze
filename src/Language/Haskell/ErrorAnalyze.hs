@@ -14,9 +14,11 @@
 -----------------------------------------------------------------------------
 
 module Language.Haskell.ErrorAnalyze
- ( ErrorPackage, ErrorVersion, ErrorModule
+ ( ErrorPackage, ErrorVersion, ErrorModule, ErrorIdentifier
  , ErrorCause(..)
+ , PackageRef(..)
  , ModuleSuggestion(..)
+ , IdentifierSuggestion(..)
  , errorCauses
 ) where
 
@@ -31,8 +33,20 @@ type ErrorPackage = T.Text
 type ErrorVersion = T.Text
 -- | Simple synonym to indicate module names
 type ErrorModule = T.Text
+-- | Simple synonym to indicate identifier names
+type ErrorIdentifier = T.Text
 
-data ModuleSuggestion = ModuleSuggestion ErrorPackage ErrorVersion ErrorModule
+-- | A package is already referenced in the Cabal file or not
+data PackageRef = Referenced | Unreferenced
+    deriving (Show,Read,Eq,Ord,Bounded,Enum)
+
+
+-- | A suggestion to use a module (present in the given package/version)
+data ModuleSuggestion = ModuleSuggestion ErrorPackage ErrorVersion PackageRef ErrorModule
+    deriving (Show,Read,Eq,Ord)
+
+-- | A suggestion to use an identifier (present in the given module)
+data IdentifierSuggestion = IdentifierSuggestion ErrorModule ErrorIdentifier
     deriving (Show,Read,Eq,Ord)
 
 -- | The possible error causes
@@ -45,7 +59,8 @@ data ErrorCause
   | MissingType T.Text
   -- | A module has been mispellt, give suggestions
   | MispelltModule T.Text [ModuleSuggestion]
-  | WrongIdentifier T.Text T.Text
+  -- | Identifier mispellt
+  | WrongIdentifier ErrorIdentifier [IdentifierSuggestion]
   -- | a full import statement is not needed (or only for instances)
   | UselessImport ErrorModule
   | UselessImportElement ErrorModule T.Text
@@ -116,22 +131,22 @@ moduleErrorAnalyzer (msg,_)
             | (bef,aft) <- T.breakOn " " ln
             , not $ T.null bef
             , Just brkts <- brackets aft
-            , Just (pkg,vers) <- suggPkg brkts
-                = Just $ ModuleSuggestion pkg vers(T.strip bef)
+            , Just (pkg,vers,ref) <- suggPkg brkts
+                = Just $ ModuleSuggestion pkg vers ref (T.strip bef)
             | otherwise = Nothing
         suggPkg brk
             | (bef,aft) <- T.breakOnEnd "from " brk
             , not $ T.null bef
-             = pkgCut aft
+             = pkgCut aft Referenced
             | (bef,aft) <- T.breakOnEnd "needs flag -package-key " brk
             , not $ T.null bef
-             = pkgCut aft
+             = pkgCut aft Unreferenced
             | otherwise = Nothing
-        pkgCut pv
+        pkgCut pv ref
             | (bef,aft) <- T.breakOnEnd "-" pv
             , not $ T.null bef
             , (befAt,_) <- T.breakOn "@" aft
-                = Just (T.init bef,befAt)
+                = Just (T.init bef,befAt,ref)
             | otherwise = Nothing
 
 -- | Need OverloadedStrings
