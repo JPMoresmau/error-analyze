@@ -114,6 +114,9 @@ tests = testGroup "error-resolver Tests"
             [MissingExtension "LambdaCase"]
         checkCauses "test/Main.hs:124:21-28:\n    Couldn't match expected type ‘b1’ with actual type ‘b’\n      ‘b’ is a rigid type variable bound by\n          the type signature for\n            foob :: (b -> b) -> b -> (a -> b) -> Maybe a -> b\n          at test/Main.hs:119:18\n      ‘b1’ is a rigid type variable bound by\n           the type signature for val :: b1 at test/Main.hs:123:16"
             [MissingExtension "ScopedTypeVariables"]
+    , testCase "cabal version" $ do
+        checkCauses "Warning: Examples.cabal: A package using section syntax must \nspecify at least 'cabal-version: >= 1.2'."
+            [IncorrectCabalVersion ">= 1.2"]
     ]
 
 

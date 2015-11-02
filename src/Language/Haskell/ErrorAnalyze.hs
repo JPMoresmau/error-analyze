@@ -75,6 +75,7 @@ data ErrorCause
   | MissingExtension T.Text
   -- | A constructor is imported from a module, instead of the type
   | ConstructorImported ErrorModule ErrorType ErrorIdentifier
+  -- | An incorrect cabal version is used, the proper version range is given in the field
   | IncorrectCabalVersion T.Text
     deriving (Show,Read,Eq,Ord)
 
@@ -92,7 +93,8 @@ errorCauses msg = let
             , discardedDoAnalyzer
             , mispelledIdentifierAnalyzer
             , constructorImportedAnalyzer
-            , missingExtensionAnalyzer]
+            , missingExtensionAnalyzer
+            , cabalVersionAnalyzer]
 
 -- | Shortcut for analyzer: takes the message in original case and lower case, return the causes
 type Analyzer = (T.Text,T.Text) -> [ErrorCause]
@@ -300,6 +302,16 @@ missingExtensionAnalyzer (msg,low)
             , isUpper $ T.head st
               = [MissingExtension st]
             | otherwise = []
+
+-- | Cabal version is not right
+cabalVersionAnalyzer :: Analyzer
+cabalVersionAnalyzer (msg,_)
+    | (bef,aft) <- T.breakOnEnd "cabal-version:" msg
+    , not $ T.null bef
+    , (v,aftV) <- T.break isQuote aft
+    , not $ T.null aftV
+      = [IncorrectCabalVersion (T.strip v)]
+    | otherwise = []
 
 -- | Remove all quotes from given text (inside the text as well)
 unquote :: T.Text -> T.Text
