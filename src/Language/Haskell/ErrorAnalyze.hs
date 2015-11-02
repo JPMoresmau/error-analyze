@@ -14,7 +14,7 @@
 -----------------------------------------------------------------------------
 
 module Language.Haskell.ErrorAnalyze
- ( ErrorPackage, ErrorVersion, ErrorModule, ErrorIdentifier
+ ( ErrorPackage, ErrorVersion, ErrorModule, ErrorIdentifier, ErrorType
  , ErrorCause(..)
  , PackageRef(..)
  , ModuleSuggestion(..)
