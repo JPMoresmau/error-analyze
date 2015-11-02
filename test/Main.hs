@@ -61,8 +61,8 @@ tests = testGroup "error-resolver Tests"
             [MissingType "commonHome :: forall s a a1.\n                             (Text.Blaze.ToMarkup a1, Text.Blaze.ToMarkup a) =>\n                             a1 -> a -> Maybe Search -> GHandler s App RepHtml"]
         checkCauses "Top-level binding with no type signature:\n               f :: forall (x :: * -> *) y t. (t -> x y) -> t -> D x y"
             [MissingType "f :: forall (x :: * -> *) y t. (t -> x y) -> t -> D x y"]
-        checkCauses "Top-level binding with no type signature:\n           fun :: forall t. t -> [Char] -> [Char]"
-            [MissingType "fun :: forall t. t -> [Char] -> [Char]"]
+        checkCauses "Top-level binding with no type signature:\n           fun :: forall t. t -> String -> String"
+            [MissingType "fun :: forall t. t -> String -> String"]
         checkCauses "test/Main.hs:(35,1)-(69,5): Warning:\n    Top-level binding with no type signature: tests :: TestTree\n"
             [MissingType "tests :: TestTree"]
         checkCauses "test/Main.hs:(35,1)-(69,5): Warning:\n    Top-level binding with no type signature: Main.tests :: TestTree\n"

@@ -184,11 +184,12 @@ missingTypeAnalyzer (msg,_)
     | otherwise = []
     where cleanType typ =
             let typs = T.splitOn "::" typ
-                noPkg = map removePackage typs
+                noPkg = map (replaceCharArray . removePackage) typs
             in T.intercalate "::" noPkg
           removePackage t =
             let (b,a) = T.breakOnEnd ":" t
             in T.append (T.takeWhile (\c->c `elem` [' ','(']) b) a
+          replaceCharArray = T.replace "[Char]" "String"
           beautifyTypes aft =
             let typ = T.strip aft
                 (nam,rtyp) = T.breakOn "::" typ
