@@ -98,6 +98,9 @@ tests = testGroup "error-resolver Tests"
             [MispelledIdentifier "<$>" []]
         checkCauses "src/Language/Haskell/ErrorAnalyze.hs:173:20-23:  Not in scope: data constructor ‘Data’"
             [MispelledIdentifier "Data" []]
+    , testCase "Data Constructor imported" $ do
+        checkCauses "test/Main.hs:28:20-23:\n    In module ‘Data.Maybe’:\n      ‘Just’ is a data constructor of ‘Maybe’\n    To import it use\n      ‘import’ Data.Maybe( Maybe( Just ) )\n    or\n      ‘import’ Data.Maybe( Maybe(..) )"
+            [ConstructorImported "Data.Maybe" "Maybe" "Just"]
     ]
 
 

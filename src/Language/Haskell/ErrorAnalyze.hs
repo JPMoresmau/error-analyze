@@ -35,6 +35,9 @@ type ErrorVersion = T.Text
 type ErrorModule = T.Text
 -- | Simple synonym to indicate identifier names
 type ErrorIdentifier = T.Text
+-- | Simple synonym to indicate type names
+type ErrorType = T.Text
+
 
 -- | A package is already referenced in the Cabal file or not
 data PackageRef = Referenced | Unreferenced
@@ -63,11 +66,14 @@ data ErrorCause
   | MispelledIdentifier ErrorIdentifier [IdentifierSuggestion]
   -- | a full import statement is not needed (or only for instances)
   | UselessImport ErrorModule
+  -- | an import element is not needed
   | UselessImportElement ErrorModule T.Text
   -- | A GHC option is missing (to add in current source file or in Cabal file)
   | MissingOption T.Text
   -- | An extension is missing (to add in current source file or in Cabal file)
   | MissingExtension T.Text
+  -- | A constructor is imported from a module, instead of the type
+  | ConstructorImported ErrorModule ErrorType ErrorIdentifier
   | IncorrectCabalVersion T.Text
     deriving (Show,Read,Eq,Ord)
 
@@ -83,7 +89,8 @@ errorCauses msg = let
             , missingTypeAnalyzer
             , uselessImportAnalyzer
             , discardedDoAnalyzer
-            , mispelledIdentifierAnalyzer]
+            , mispelledIdentifierAnalyzer
+            , constructorImportedAnalyzer]
 
 -- | Shortcut for analyzer: takes the message in original case and lower case, return the causes
 type Analyzer = (T.Text,T.Text) -> [ErrorCause]
@@ -221,14 +228,6 @@ mispelledIdentifierAnalyzer (msg,_)
         = [MispelledIdentifier (unquoteIfNeeded ident) (suggs lns)]
     | otherwise = []
     where
-        -- identifier that don't contain quotes are quoted
-        unquoteIfNeeded ident
-            | T.null ident = T.empty
-            | otherwise =
-                let st=T.strip ident
-                in if isQuote $ T.head st
-                    then unquote st
-                    else st
         suggs ("Perhaps you meant one of these:":lns) = suggs' lns
         suggs [t]
             | (bef,aft) <- T.breakOnEnd "Perhaps you meant" t
@@ -245,6 +244,22 @@ mispelledIdentifierAnalyzer (msg,_)
               = Just $ IdentifierSuggestion (T.strip modl) (unquoteIfNeeded ident)
             | otherwise = Nothing
 
+-- | A constructor has been imported instead of the type
+constructorImportedAnalyzer :: Analyzer
+constructorImportedAnalyzer (msg,_)
+   | (bef,aft) <- T.breakOn dataCons msg
+   , not $ T.null aft
+   , (befM,aftM) <- T.breakOnEnd ":" bef
+   , not $ T.null aftM
+   , (befM1,aftM1) <- T.breakOnEnd " " (T.init befM)
+   , not $ T.null befM1
+   , (befLn,aftLn) <- T.breakOn "\n" (T.drop (T.length dataCons) aft)
+   , not $ T.null aftLn
+     = [ConstructorImported (unquoteIfNeeded aftM1) (unquoteIfNeeded befLn) (unquoteIfNeeded aftM)]
+   | otherwise = []
+    where dataCons = "is a data constructor of"
+
+
 -- | Remove all quotes from given text (inside the text as well)
 unquote :: T.Text -> T.Text
 unquote = T.concatMap addNonQuote
@@ -252,6 +267,15 @@ unquote = T.concatMap addNonQuote
             | isQuote c = T.empty
             | otherwise = T.singleton c
     --T.dropAround isQuote
+
+-- | identifiers that don't contain quotes are quoted
+unquoteIfNeeded :: T.Text -> T.Text
+unquoteIfNeeded ident =
+    let st=T.strip ident
+    in if (not $ T.null st) && isQuote (T.head st)
+        then unquote st
+        else st
+
 
 -- | Is a character a quote?
 isQuote :: Char -> Bool
