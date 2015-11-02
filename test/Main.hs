@@ -101,8 +101,20 @@ tests = testGroup "error-resolver Tests"
     , testCase "Data Constructor imported" $ do
         checkCauses "test/Main.hs:28:20-23:\n    In module ‘Data.Maybe’:\n      ‘Just’ is a data constructor of ‘Maybe’\n    To import it use\n      ‘import’ Data.Maybe( Maybe( Just ) )\n    or\n      ‘import’ Data.Maybe( Maybe(..) )"
             [ConstructorImported "Data.Maybe" "Maybe" "Just"]
+    , testCase "Missing extension" $ do
+        checkCauses "test/Main.hs:109:1-9:\n    Parse error: naked expression at top level\n    Perhaps you intended to use TemplateHaskell"
+            [MissingExtension "TemplateHaskell"]
+        checkCauses "test/Main.hs:113:16-57:\n    Illegal constraint: forall a (Use ConstraintKinds to permit this)\n    In the type signature for ‘checkCauses’:\n      checkCauses :: forall a => T.Text -> [ErrorCause] -> IO ()"
+            [MissingExtension "ConstraintKinds"]
+        checkCauses "test/Main.hs:114:25:\n    Illegal symbol '.' in type\n    Perhaps you intended to use RankNTypes or a similar language\n    extension to enable explicit-forall syntax: forall <tvs>. <type>"
+            [MissingExtension "RankNTypes",MissingExtension "ScopedTypeVariables",MissingExtension "ExistentialQuantification"]
+        checkCauses "test/Main.hs:117:5: parse error: naked lambda expression ''"
+            [MissingExtension "LambdaCase"]
+        checkCauses "test/Main.hs:117:5: parse error on input `case'"
+            [MissingExtension "LambdaCase"]
+        checkCauses "test/Main.hs:124:21-28:\n    Couldn't match expected type ‘b1’ with actual type ‘b’\n      ‘b’ is a rigid type variable bound by\n          the type signature for\n            foob :: (b -> b) -> b -> (a -> b) -> Maybe a -> b\n          at test/Main.hs:119:18\n      ‘b1’ is a rigid type variable bound by\n           the type signature for val :: b1 at test/Main.hs:123:16"
+            [MissingExtension "ScopedTypeVariables"]
     ]
-
 
 
 -- | check that given messages gives given causes, in any order

@@ -22,6 +22,7 @@ module Language.Haskell.ErrorAnalyze
  , errorCauses
 ) where
 
+import Data.Char
 import Data.Maybe
 import qualified Data.Text as T
 
@@ -90,7 +91,8 @@ errorCauses msg = let
             , uselessImportAnalyzer
             , discardedDoAnalyzer
             , mispelledIdentifierAnalyzer
-            , constructorImportedAnalyzer]
+            , constructorImportedAnalyzer
+            , missingExtensionAnalyzer]
 
 -- | Shortcut for analyzer: takes the message in original case and lower case, return the causes
 type Analyzer = (T.Text,T.Text) -> [ErrorCause]
@@ -259,6 +261,45 @@ constructorImportedAnalyzer (msg,_)
    | otherwise = []
     where dataCons = "is a data constructor of"
 
+-- | An extension is missing
+missingExtensionAnalyzer :: Analyzer
+missingExtensionAnalyzer (msg,low)
+    | T.isInfixOf "naked expression at top level" low
+        = [MissingExtension "TemplateHaskell"]
+    | T.isInfixOf "parse error on input case" (unquote low)
+        = [MissingExtension "LambdaCase"]
+    | T.isInfixOf "naked lambda expression" low
+        = [MissingExtension "LambdaCase"]
+    | T.isInfixOf "enable explicit-forall syntax" low
+        = [MissingExtension "RankNTypes",MissingExtension "ScopedTypeVariables",MissingExtension "ExistentialQuantification"]
+    | T.isInfixOf "rigid type variable" low
+        = [MissingExtension "ScopedTypeVariables"]
+    | (bef,aft) <- T.breakOnEnd "(Use " msg
+    , not $ T.null bef
+    , (bef1,aft1) <- T.breakOn " " $ aft
+    , not $ T.null aft1
+        = toExtension bef1
+    | (bef,aft) <- T.breakOnEnd "intended to use " msg
+    , not $ T.null bef
+    , (bef1,_) <- T.breakOn " " $ aft
+        = toExtension bef1
+    | (bef,aft) <- T.breakOnEnd "you need " msg
+    , not $ T.null bef
+    , (bef1,_) <- T.breakOn " " $ aft
+        = toExtension bef1
+    | otherwise = []
+    where
+          -- remove leading -X
+          stripX t
+            | T.isPrefixOf "-X" t = T.drop 2 t
+            | otherwise = t
+          -- check we have an upper case initial
+          toExtension t
+            | st <- stripX $ T.strip t
+            , not $ T.null st
+            , isUpper $ T.head st
+              = [MissingExtension st]
+            | otherwise = []
 
 -- | Remove all quotes from given text (inside the text as well)
 unquote :: T.Text -> T.Text
