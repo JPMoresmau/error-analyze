@@ -26,8 +26,6 @@ import Data.Char
 import Data.Maybe
 import qualified Data.Text as T
 
-import Debug.Trace
-
 -- | Simple synonym to indicate package names
 type ErrorPackage = T.Text
 -- | Simple synonym to indicate package versions
